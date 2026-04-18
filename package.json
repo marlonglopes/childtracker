@@ -10,6 +10,8 @@
     "test": "jest --watchAll",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "emulators": "firebase emulators:start",
+    "dev": "concurrently \"npm run emulators\" \"npx expo start\"",
     "functions:serve": "cd functions && npm run serve",
     "functions:deploy": "cd functions && npm run deploy"
   },
@@ -46,6 +48,7 @@
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-native": "^4.1.0",
+    "concurrently": "^9.0.0",
     "jest": "^29.7.0",
     "jest-expo": "~51.0.4",
     "prettier": "^3.3.3",

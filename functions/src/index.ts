@@ -5,6 +5,8 @@ import twilio from 'twilio';
 admin.initializeApp();
 const db = admin.firestore();
 
+const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Twilio credentials stored in Firebase Functions config:
 // firebase functions:config:set twilio.sid="ACxxx" twilio.token="xxx" twilio.from="whatsapp:+14155238886"
 function getTwilioClient() {
@@ -13,6 +15,11 @@ function getTwilioClient() {
 }
 
 async function sendWhatsApp(to: string, body: string) {
+  if (IS_EMULATOR) {
+    // In local dev, just print the message — no Twilio account needed
+    functions.logger.info(`[WhatsApp MOCK] To: ${to}\n${body}`);
+    return;
+  }
   const { client, from } = getTwilioClient();
   await client.messages.create({
     from,
