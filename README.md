@@ -5,8 +5,9 @@ approves a system DNS profile once; every domain their phone queries is logged
 and forwarded to the parent via WhatsApp. No hidden capture, no location
 tracking.
 
-> **Status:** Sprint 1 (backend + family linking) nearly complete. Sprint 2
-> (Network Extension) requires an Apple Developer account and begins 2026-05-02.
+> **Status:** Sprint 1 ✅ done — backend, family linking and emulator smoke
+> test all green. Sprint 2 (Network Extension) starts 2026-05-02; only the
+> final real-device test requires an Apple Developer account.
 > See [`SPRINT.md`](./SPRINT.md) and [`ROADMAP.md`](./ROADMAP.md).
 
 ## How it works

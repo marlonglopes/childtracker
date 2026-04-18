@@ -6,7 +6,7 @@ Parent gets WhatsApp alerts about every domain visited — no secrets, no spywar
 
 ---
 
-## Phase 1 — Foundation + Backend (Weeks 1–2) ✅ nearly done
+## Phase 1 — Foundation + Backend (Weeks 1–2) ✅ done
 **Goal**: Backend fully working. Can receive DNS logs and send WhatsApp messages.
 No Apple Developer account needed for this phase.
 
@@ -21,11 +21,11 @@ No Apple Developer account needed for this phase.
 - [x] Parent dashboard UI: recent domains list
 - [x] Parent settings UI: alert mode, flagged/blocked domain editors
 - [x] Child monitor UI: extension on/off placeholder (real start/stop in Sprint 2)
-- [ ] End-to-end smoke test: POST a fake DNS batch → emulator logs WhatsApp message
-      → domain appears in Dashboard
+- [x] End-to-end smoke test: POST a fake DNS batch → emulator logs WhatsApp message
+      → domain appears in Dashboard — verified 2026-04-18
 
 **Exit criteria**: POST a fake DNS batch to the local function → WhatsApp-mock
-log shows the alert, and the domain appears in the Parent Dashboard.
+log shows the alert, and the domain appears in the Parent Dashboard. ✅
 
 ---
 
