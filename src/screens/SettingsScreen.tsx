@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useAuthStore, useFamilyStore } from '@/store';
 import { updateFamilySettings } from '@/services/familyService';
+import { notify, confirmDestructive } from '@/utils/dialog';
 import type { AlertMode, FamilySettings } from '@/types';
 
 const ALERT_OPTIONS: { label: string; value: AlertMode; desc: string }[] = [
@@ -46,7 +46,7 @@ export function SettingsScreen() {
       await updateFamilySettings(familyId!, patch);
     } catch (e) {
       updateSettings(family!.settings);
-      Alert.alert('Could not save', e instanceof Error ? e.message : 'Try again.');
+      notify('Could not save', e instanceof Error ? e.message : 'Try again.');
       return merged;
     }
     return merged;
@@ -60,13 +60,13 @@ export function SettingsScreen() {
     const raw = kind === 'flagged' ? flaggedInput : blockedInput;
     const domain = normalizeDomain(raw);
     if (!domain) {
-      Alert.alert('Invalid domain', 'Enter a domain like tiktok.com.');
+      notify('Invalid domain', 'Enter a domain like tiktok.com.');
       return;
     }
     const key = kind === 'flagged' ? 'flaggedDomains' : 'blockedDomains';
     const list = family!.settings[key];
     if (list.includes(domain)) {
-      Alert.alert('Already added', `${domain} is already in the list.`);
+      notify('Already added', `${domain} is already in the list.`);
       return;
     }
     await persist({ [key]: [...list, domain] } as Partial<FamilySettings>);
@@ -80,18 +80,11 @@ export function SettingsScreen() {
     await persist({ [key]: list } as Partial<FamilySettings>);
   }
 
-  function handleSignOut() {
-    Alert.alert('Sign out', 'This will unlink this device. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: () => {
-          clearAuth();
-          clearFamily();
-        },
-      },
-    ]);
+  async function handleSignOut() {
+    const ok = await confirmDestructive('Sign out', 'This will unlink this device. Are you sure?');
+    if (!ok) return;
+    clearAuth();
+    clearFamily();
   }
 
   const current = family.settings.alertMode;

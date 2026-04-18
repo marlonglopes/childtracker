@@ -1,5 +1,5 @@
 import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
+import admin = require('firebase-admin');
 import twilio from 'twilio';
 
 admin.initializeApp();
@@ -72,7 +72,7 @@ export const onDnsLogBatch = functions.https.onRequest(async (req, res) => {
     batch.set(ref, {
       childId,
       domain,
-      timestamp: admin.firestore.Timestamp.fromMillis(raw.timestamp),
+      timestamp: new Date(raw.timestamp),
       blocked: isBlocked,
       flagged: isFlagged,
       appBundleId: raw.appBundleId ?? null,
@@ -118,7 +118,7 @@ export const hourlyDigest = functions.pubsub
 
       const logsSnap = await db
         .collection(`families/${familyDoc.id}/dnsLogs`)
-        .where('timestamp', '>=', admin.firestore.Timestamp.fromDate(since))
+        .where('timestamp', '>=', since)
         .where('flagged', '==', true)
         .orderBy('timestamp', 'asc')
         .get();
@@ -127,7 +127,7 @@ export const hourlyDigest = functions.pubsub
 
       const lines = logsSnap.docs.map((d) => {
         const data = d.data();
-        const t = (data['timestamp'] as admin.firestore.Timestamp)
+        const t = (data['timestamp'] as FirebaseFirestore.Timestamp)
           .toDate()
           .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const tag = data['blocked'] ? '🚫' : '⚠️';

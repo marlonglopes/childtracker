@@ -5,13 +5,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
 import { useAuthStore, useFamilyStore } from '@/store';
 import { createFamily } from '@/services/familyService';
+import { notify } from '@/utils/dialog';
 import type { AuthScreenProps } from '@/navigation/types';
 
 export function ParentSetupScreen({ navigation }: AuthScreenProps<'ParentSetup'>) {
@@ -24,13 +24,13 @@ export function ParentSetupScreen({ navigation }: AuthScreenProps<'ParentSetup'>
 
   async function handleSetup() {
     if (!name.trim() || !phone.trim()) {
-      Alert.alert('Missing info', 'Please enter your name and WhatsApp phone number.');
+      notify('Missing info', 'Please enter your name and WhatsApp phone number.');
       return;
     }
 
     const normalized = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
     if (normalized.length < 10) {
-      Alert.alert('Invalid number', 'Enter your full phone number with country code (e.g. +15551234567).');
+      notify('Invalid number', 'Enter your full phone number with country code (e.g. +15551234567).');
       return;
     }
 
@@ -41,7 +41,7 @@ export function ParentSetupScreen({ navigation }: AuthScreenProps<'ParentSetup'>
       setAuth({ uid: family.id, familyId: family.id, role: 'parent' });
       setOnboarded();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not create family. Try again.');
+      notify('Error', e instanceof Error ? e.message : 'Could not create family. Try again.');
     } finally {
       setLoading(false);
     }

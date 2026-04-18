@@ -34,4 +34,7 @@ if (process.env.EXPO_PUBLIC_USE_EMULATOR === 'true') {
   const host = process.env.EXPO_PUBLIC_EMULATOR_HOST ?? 'localhost';
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   connectFirestoreEmulator(db, host, 8080);
+  console.log('[firebase] connected to emulators at', host);
+} else {
+  console.log('[firebase] using REAL firebase project', firebaseConfig.projectId);
 }

@@ -19,7 +19,9 @@ function generateLinkCode(): string {
 }
 
 export async function createFamily(parentName: string, parentPhone: string): Promise<Family> {
+  console.log('[createFamily] start', { parentName, parentPhone });
   const userCred = await signInAnonymously(auth);
+  console.log('[createFamily] signed in', userCred.user.uid);
   const familyId = userCred.user.uid;
   const linkCode = generateLinkCode();
 
@@ -38,6 +40,7 @@ export async function createFamily(parentName: string, parentPhone: string): Pro
   };
 
   await setDoc(doc(db, 'families', familyId), family);
+  console.log('[createFamily] wrote Firestore doc families/' + familyId);
 
   return {
     id: familyId,
