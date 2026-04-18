@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   TextInput,
   TouchableOpacity,
@@ -61,7 +60,7 @@ export function ParentSetupScreen({ navigation }: AuthScreenProps<'ParentSetup'>
 
           <Text className="text-3xl font-bold text-gray-900 mb-2">Parent Setup</Text>
           <Text className="text-gray-500 mb-8">
-            We'll create a link code your child enters to connect their device.
+            We’ll create a link code your child enters to connect their device.
           </Text>
 
           <Text className="text-gray-700 font-semibold mb-1">Your name</Text>

@@ -139,7 +139,7 @@ export function SettingsScreen() {
         <View className="bg-white rounded-2xl p-4">
           <Text className="font-semibold text-gray-900 mb-1">Flagged domains</Text>
           <Text className="text-gray-400 text-xs mb-3">
-            You'll get a WhatsApp alert when these are visited.
+            You’ll get a WhatsApp alert when these are visited.
           </Text>
           <View className="flex-row gap-2 mb-3">
             <TextInput
@@ -178,7 +178,7 @@ export function SettingsScreen() {
         <View className="bg-white rounded-2xl p-4">
           <Text className="font-semibold text-gray-900 mb-1">Blocked domains</Text>
           <Text className="text-gray-400 text-xs mb-3">
-            Logged and alerted. Actual DNS blocking happens on the child's device (Sprint 2).
+            Logged and alerted. Actual DNS blocking happens on the child’s device (Sprint 2).
           </Text>
           <View className="flex-row gap-2 mb-3">
             <TextInput
