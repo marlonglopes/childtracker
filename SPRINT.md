@@ -1,10 +1,16 @@
 # ChildTracker — Sprint Tracker
 
-## Current Sprint: Sprint 2 — Network Extension
+## Current Sprint: Sprint 2 — Network Extension (scaffold)
 **Dates**: 2026-05-02 → 2026-05-15
 **Phase**: Phase 2 — Network Extension
-**Goal**: Child visits a domain on a real device → parent's WhatsApp within 5 minutes.
-Final real-device test requires an Apple Developer account ($99/yr); everything up to that step is runnable without one.
+**Goal**: Full Network Extension stack in the repo — config plugin, Swift
+provider, native module, background upload, VPN-install UI — verified
+end-to-end via a dev-only mock DNS source.
+
+Real-device DNS interception requires the `networkextension` entitlement which
+is paid-Apple-Developer-only. That last mile is split into **Sprint 2.5** and
+blocked on Apple enrollment; Sprint 2 proper ships the entire stack behind a
+mock source so the Dashboard and alert pipeline can be exercised today.
 
 ---
 
@@ -41,11 +47,27 @@ Final real-device test requires an Apple Developer account ($99/yr); everything 
       `NETunnelProviderManager.saveToPreferences`, confirms success
 - [ ] Re-check on app resume
 
+#### Dev Mock Source (bridges the Apple-Developer gap)
+- [ ] `MonitorScreen` dev-only "Simulate DNS visit" input — writes synthetic
+      entries directly into the shared buffer
+- [ ] Exercises the full pipeline: buffer → `drainBuffer()` → `uploadBatch`
+      → Firestore → WhatsApp mock → Dashboard, without an Apple account
+
 #### Verification
 - [ ] `npm run typecheck` passes (0 errors)
 - [ ] Build succeeds on iOS simulator with the extension target
-- [ ] 🔒 Real-device E2E (blocked on Apple Developer account) — child visits
-      a flagged domain, parent receives WhatsApp within 5 min
+- [ ] Mock source E2E: simulate `tiktok.com` visit → Dashboard shows it +
+      WhatsApp-mock alert fires
+
+---
+
+### Sprint 2.5 (Planned — gated on Apple Developer enrollment)
+- [ ] Apple Developer account active
+- [ ] `networkextension` + App Group entitlements approved
+- [ ] Provisioning profiles for main + extension targets
+- [ ] Real-device install; replace mock source with real extension runtime
+- [ ] 🔒 End-to-end: child visits a flagged domain → parent's WhatsApp
+      within 5 min
 
 ---
 
