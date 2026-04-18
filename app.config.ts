@@ -34,6 +34,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         color: '#4F46E5',
       },
     ],
+    './plugins/withDnsExtension',
   ],
   extra: {
     firebaseApiKey: process.env.FIREBASE_API_KEY,
