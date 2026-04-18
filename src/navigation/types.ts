@@ -7,7 +7,7 @@ export type AuthStackParamList = {
 };
 
 export type ChildStackParamList = {
-  Home: undefined;
+  Monitor: undefined;
 };
 
 export type ParentStackParamList = {

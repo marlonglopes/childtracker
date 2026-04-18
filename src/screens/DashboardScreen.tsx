@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useAuthStore, useFamilyStore } from '@/store';
-import { getRecentActivities } from '@/services/activityService';
-import type { ActivityLog } from '@/types';
+import { getRecentLogs } from '@/services/dnsLogService';
+import type { DnsLog } from '@/types';
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -21,24 +22,40 @@ function formatDate(date: Date): string {
   return isToday ? 'Today' : date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function DomainTag({ log }: { log: DnsLog }) {
+  if (log.blocked) return <Text className="text-red-500 text-xs font-semibold">BLOCKED</Text>;
+  if (log.flagged) return <Text className="text-amber-500 text-xs font-semibold">FLAGGED</Text>;
+  return null;
+}
+
 export function DashboardScreen({ navigation }: { navigation: any }) {
   const { familyId } = useAuthStore();
   const { family } = useFamilyStore();
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [logs, setLogs] = useState<DnsLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!familyId) return;
+    const data = await getRecentLogs(familyId);
+    setLogs(data);
+  }, [familyId]);
 
   useEffect(() => {
-    if (!familyId) return;
-    getRecentActivities(familyId)
-      .then(setActivities)
-      .finally(() => setLoading(false));
-  }, [familyId]);
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="px-5 pt-4 pb-2 flex-row justify-between items-center">
         <View>
-          <Text className="text-2xl font-bold text-gray-900">Family Activity</Text>
+          <Text className="text-2xl font-bold text-gray-900">DNS Activity</Text>
           {family?.linkCode && (
             <Text className="text-gray-400 text-sm">Link code: {family.linkCode}</Text>
           )}
@@ -52,33 +69,45 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#4F46E5" />
         </View>
-      ) : activities.length === 0 ? (
+      ) : logs.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-5xl mb-4">📭</Text>
+          <Text className="text-5xl mb-4">📡</Text>
           <Text className="text-gray-500 text-center text-lg">
-            No activity yet. Once your child logs something, it'll appear here.
+            No DNS logs yet. Once your child's device connects, domains will appear here.
           </Text>
         </View>
       ) : (
         <FlatList
-          data={activities}
+          data={logs}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 20, gap: 12 }}
+          contentContainerStyle={{ padding: 20, gap: 8 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderItem={({ item }) => (
-            <View className="bg-white rounded-2xl p-4 shadow-sm">
-              <View className="flex-row justify-between items-start">
-                <View className="flex-1">
-                  <Text className="font-semibold text-gray-900">{item.childName}</Text>
-                  <Text className="text-gray-700 mt-0.5">{item.label}</Text>
-                  {item.location?.address && (
-                    <Text className="text-gray-400 text-xs mt-1">📍 {item.location.address}</Text>
-                  )}
-                </View>
-                <View className="items-end">
-                  <Text className="text-gray-500 text-sm">{formatTime(item.timestamp)}</Text>
-                  <Text className="text-gray-400 text-xs">{formatDate(item.timestamp)}</Text>
-                  {item.notified && <Text className="text-green-500 text-xs mt-1">✓ Sent</Text>}
-                </View>
+            <View
+              className={`bg-white rounded-xl px-4 py-3 shadow-sm border-l-4 ${
+                item.blocked
+                  ? 'border-red-500'
+                  : item.flagged
+                  ? 'border-amber-400'
+                  : 'border-transparent'
+              }`}
+            >
+              <View className="flex-row justify-between items-center">
+                <Text className="font-medium text-gray-900 flex-1 mr-2" numberOfLines={1}>
+                  {item.domain}
+                </Text>
+                <DomainTag log={item} />
+              </View>
+              <View className="flex-row items-center mt-1 gap-2">
+                <Text className="text-gray-400 text-xs">{formatTime(item.timestamp)}</Text>
+                <Text className="text-gray-300 text-xs">·</Text>
+                <Text className="text-gray-400 text-xs">{formatDate(item.timestamp)}</Text>
+                {item.appBundleId && (
+                  <>
+                    <Text className="text-gray-300 text-xs">·</Text>
+                    <Text className="text-gray-400 text-xs">{item.appBundleId}</Text>
+                  </>
+                )}
               </View>
             </View>
           )}

@@ -7,8 +7,6 @@ const db = admin.firestore();
 
 const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 
-// Twilio credentials stored in Firebase Functions config:
-// firebase functions:config:set twilio.sid="ACxxx" twilio.token="xxx" twilio.from="whatsapp:+14155238886"
 function getTwilioClient() {
   const cfg = functions.config().twilio as { sid: string; token: string; from: string };
   return { client: twilio(cfg.sid, cfg.token), from: cfg.from };
@@ -16,97 +14,130 @@ function getTwilioClient() {
 
 async function sendWhatsApp(to: string, body: string) {
   if (IS_EMULATOR) {
-    // In local dev, just print the message — no Twilio account needed
     functions.logger.info(`[WhatsApp MOCK] To: ${to}\n${body}`);
     return;
   }
   const { client, from } = getTwilioClient();
-  await client.messages.create({
-    from,
-    to: `whatsapp:${to}`,
-    body,
-  });
+  await client.messages.create({ from, to: `whatsapp:${to}`, body });
 }
 
-// Triggered when a child logs an activity
-export const onActivityLogged = functions.firestore
-  .document('families/{familyId}/activities/{activityId}')
-  .onCreate(async (snap, context) => {
-    const { familyId } = context.params as { familyId: string };
-    const activity = snap.data();
+interface RawLog {
+  domain: string;
+  timestamp: number;
+  appBundleId?: string;
+}
 
-    const familySnap = await db.doc(`families/${familyId}`).get();
-    if (!familySnap.exists) return;
+// POST { familyId, childId, logs[] } — called by the app's background task every 60s
+export const onDnsLogBatch = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed');
+    return;
+  }
 
-    const family = familySnap.data()!;
-    const settings = family['settings'] as { notifyMode: string };
+  const { familyId, childId, logs } = req.body as {
+    familyId: string;
+    childId: string;
+    logs: RawLog[];
+  };
 
-    if (settings.notifyMode === 'digest') {
-      // Digest mode: mark for batch, don't send now (except SOS)
-      if (activity['type'] !== 'sos') return;
+  if (!familyId || !childId || !Array.isArray(logs) || logs.length === 0) {
+    res.status(400).send('Bad Request');
+    return;
+  }
+
+  const familySnap = await db.doc(`families/${familyId}`).get();
+  if (!familySnap.exists) {
+    res.status(404).send('Family not found');
+    return;
+  }
+
+  const settings = familySnap.data()!['settings'] as {
+    flaggedDomains: string[];
+    blockedDomains: string[];
+    alertMode: string;
+    parentPhone?: string;
+  };
+  const flagged: string[] = settings.flaggedDomains ?? [];
+  const blocked: string[] = settings.blockedDomains ?? [];
+
+  const batch = db.batch();
+  const alertLogs: Array<{ domain: string; isFlagged: boolean; isBlocked: boolean }> = [];
+
+  for (const raw of logs) {
+    const domain = raw.domain.toLowerCase();
+    const isFlagged = flagged.some((f) => domain === f || domain.endsWith(`.${f}`));
+    const isBlocked = blocked.some((b) => domain === b || domain.endsWith(`.${b}`));
+
+    const ref = db.collection(`families/${familyId}/dnsLogs`).doc();
+    batch.set(ref, {
+      childId,
+      domain,
+      timestamp: admin.firestore.Timestamp.fromMillis(raw.timestamp),
+      blocked: isBlocked,
+      flagged: isFlagged,
+      appBundleId: raw.appBundleId ?? null,
+    });
+
+    if ((isFlagged || isBlocked) && settings.alertMode !== 'digest') {
+      alertLogs.push({ domain, isFlagged, isBlocked });
     }
+  }
 
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const locationStr = activity['location']?.address
-      ? ` 📍 ${activity['location'].address}`
-      : '';
+  await batch.commit();
 
-    const isSos = activity['type'] === 'sos';
-    const body = isSos
-      ? `🚨 SOS from ${activity['childName']} at ${time}.${locationStr} Please call them immediately.`
-      : `${activity['childName']} — ${activity['label']} at ${time}.${locationStr}`;
-
+  // Instant alerts for flagged/blocked domains
+  if (alertLogs.length > 0) {
+    const parentPhone = familySnap.data()!['parentPhone'] as string;
+    const lines = alertLogs.map(({ domain, isBlocked }) =>
+      isBlocked ? `🚫 BLOCKED: ${domain}` : `⚠️ FLAGGED: ${domain}`,
+    );
+    const body = `ChildTracker alert:\n${lines.join('\n')}`;
     try {
-      await sendWhatsApp(family['parentPhone'], body);
-      await snap.ref.update({ notified: true, notifiedAt: admin.firestore.FieldValue.serverTimestamp() });
+      await sendWhatsApp(parentPhone, body);
     } catch (err) {
-      functions.logger.error('WhatsApp send failed', err);
+      functions.logger.error('Instant alert WhatsApp failed', err);
     }
-  });
+  }
 
-// Daily digest — runs every day at 18:00 UTC (adjust per family timezone in v2)
-export const dailyDigest = functions.pubsub
-  .schedule('0 18 * * *')
+  res.status(200).json({ written: logs.length });
+});
+
+// Hourly digest — aggregates unnotified flagged/blocked logs and sends summary
+export const hourlyDigest = functions.pubsub
+  .schedule('0 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     const familiesSnap = await db.collection('families').get();
 
     for (const familyDoc of familiesSnap.docs) {
       const family = familyDoc.data();
-      if (family['settings']?.notifyMode === 'instant') continue;
+      const alertMode = family['settings']?.alertMode as string;
+      if (alertMode === 'instant') continue;
 
-      const since = new Date();
-      since.setHours(0, 0, 0, 0);
+      const since = new Date(Date.now() - 60 * 60 * 1000);
 
-      const activitiesSnap = await db
-        .collection(`families/${familyDoc.id}/activities`)
-        .where('timestamp', '>=', since)
-        .where('notified', '==', false)
+      const logsSnap = await db
+        .collection(`families/${familyDoc.id}/dnsLogs`)
+        .where('timestamp', '>=', admin.firestore.Timestamp.fromDate(since))
+        .where('flagged', '==', true)
         .orderBy('timestamp', 'asc')
         .get();
 
-      if (activitiesSnap.empty) continue;
+      if (logsSnap.empty) continue;
 
-      const lines = activitiesSnap.docs.map((d) => {
-        const a = d.data();
-        const t = (a['timestamp'] as admin.firestore.Timestamp)
+      const lines = logsSnap.docs.map((d) => {
+        const data = d.data();
+        const t = (data['timestamp'] as admin.firestore.Timestamp)
           .toDate()
           .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `• ${a['childName']}: ${a['label']} at ${t}`;
+        const tag = data['blocked'] ? '🚫' : '⚠️';
+        return `${tag} ${data['domain']} at ${t}`;
       });
 
-      const body = `📋 Today's summary:\n${lines.join('\n')}`;
+      const body = `ChildTracker — last hour:\n${lines.join('\n')}`;
 
       try {
         await sendWhatsApp(family['parentPhone'], body);
-        const batch = db.batch();
-        activitiesSnap.docs.forEach((d) => {
-          batch.update(d.ref, {
-            notified: true,
-            notifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        });
-        await batch.commit();
       } catch (err) {
         functions.logger.error(`Digest failed for family ${familyDoc.id}`, err);
       }

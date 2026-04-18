@@ -1,6 +1,7 @@
 import {
   doc,
   setDoc,
+  updateDoc,
   getDoc,
   collection,
   query,
@@ -11,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from './firebase';
-import type { Family, Child } from '@/types';
+import type { Family, Child, FamilySettings } from '@/types';
 
 function generateLinkCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -28,9 +29,11 @@ export async function createFamily(parentName: string, parentPhone: string): Pro
     parentName,
     createdAt: serverTimestamp(),
     settings: {
-      notifyMode: 'instant',
+      alertMode: 'instant',
       digestTime: '18:00',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      flaggedDomains: [],
+      blockedDomains: [],
     },
   };
 
@@ -75,13 +78,30 @@ export async function linkChildToFamily(
     parentPhone: familyData['parentPhone'],
     parentName: familyData['parentName'],
     createdAt: (familyData['createdAt'] as Timestamp).toDate(),
-    settings: familyData['settings'],
+    settings: {
+      alertMode: familyData['settings']?.alertMode ?? 'instant',
+      digestTime: familyData['settings']?.digestTime ?? '18:00',
+      timezone: familyData['settings']?.timezone ?? 'UTC',
+      flaggedDomains: familyData['settings']?.flaggedDomains ?? [],
+      blockedDomains: familyData['settings']?.blockedDomains ?? [],
+    },
   };
 
   return {
     family,
     child: { id: childId, ...child, linkedAt: new Date() },
   };
+}
+
+export async function updateFamilySettings(
+  familyId: string,
+  patch: Partial<FamilySettings>,
+): Promise<void> {
+  const ref = doc(db, 'families', familyId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Family not found');
+  const current = snap.data()['settings'] ?? {};
+  await updateDoc(ref, { settings: { ...current, ...patch } });
 }
 
 export async function getFamily(familyId: string): Promise<Family | null> {
@@ -95,6 +115,12 @@ export async function getFamily(familyId: string): Promise<Family | null> {
     parentPhone: data['parentPhone'],
     parentName: data['parentName'],
     createdAt: (data['createdAt'] as Timestamp).toDate(),
-    settings: data['settings'],
+    settings: {
+      alertMode: data['settings']?.alertMode ?? 'instant',
+      digestTime: data['settings']?.digestTime ?? '18:00',
+      timezone: data['settings']?.timezone ?? 'UTC',
+      flaggedDomains: data['settings']?.flaggedDomains ?? [],
+      blockedDomains: data['settings']?.blockedDomains ?? [],
+    },
   };
 }

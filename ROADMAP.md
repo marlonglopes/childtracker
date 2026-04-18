@@ -6,34 +6,40 @@ Parent gets WhatsApp alerts about every domain visited — no secrets, no spywar
 
 ---
 
-## Phase 1 — Foundation + Backend (Weeks 1–2)
+## Phase 1 — Foundation + Backend (Weeks 1–2) ✅ nearly done
 **Goal**: Backend fully working. Can receive DNS logs and send WhatsApp messages.
 No Apple Developer account needed for this phase.
 
-- [ ] Reset to React Native bare workflow
-- [ ] Family linking flow (parent gets link code, child enters it)
-- [ ] Firebase: Firestore schema, security rules, Cloud Functions
-- [ ] `onDnsLogBatch` Cloud Function — receives batched logs, writes to Firestore
-- [ ] `hourlyDigest` Cloud Function — cron, sends WhatsApp summary
-- [ ] `instantAlert` Cloud Function — flagged/blocked domain → immediate WhatsApp
-- [ ] Twilio WhatsApp sandbox integration
-- [ ] Parent dashboard UI: recent domains list, settings
-- [ ] Child setup UI: link code entry, VPN install prompt screen
+- [x] React Native + Expo + TypeScript scaffold
+- [x] NativeWind, React Navigation v6, Zustand stores, Firebase SDK wired
+- [x] Family linking flow (parent gets link code, child enters it)
+- [x] Firestore schema + security rules (parent-writable family, functions-only `dnsLogs`)
+- [x] `onDnsLogBatch` Cloud Function — receives batched logs, writes to Firestore,
+      emits instant WhatsApp for flagged/blocked
+- [x] `hourlyDigest` Cloud Function — cron, sends WhatsApp summary
+- [x] Twilio WhatsApp integration (sandbox + emulator-mock mode)
+- [x] Parent dashboard UI: recent domains list
+- [x] Parent settings UI: alert mode, flagged/blocked domain editors
+- [x] Child monitor UI: extension on/off placeholder (real start/stop in Sprint 2)
+- [ ] End-to-end smoke test: POST a fake DNS batch → emulator logs WhatsApp message
+      → domain appears in Dashboard
 
-**Exit criteria**: POST a fake DNS batch to the function manually → parent WhatsApp message arrives.
+**Exit criteria**: POST a fake DNS batch to the local function → WhatsApp-mock
+log shows the alert, and the domain appears in the Parent Dashboard.
 
 ---
 
 ## Phase 2 — Network Extension (Weeks 3–4)
 **Requires Apple Developer account ($99)**
 
-- [ ] Add `ChildTrackerDNS` Network Extension target in Xcode
+- [ ] `npx expo prebuild` to generate native `ios/` project
+- [ ] Add `ChildTrackerDNS` Network Extension target in Xcode (via config plugin)
 - [ ] `NEDNSProxyProvider` Swift implementation — intercepts DNS queries
 - [ ] App Group setup — shared storage between app and extension
 - [ ] `DomainLogger.swift` — writes batched domains to shared UserDefaults
-- [ ] `extensionBridge.ts` — React Native native module to start/stop extension
+- [ ] `extensionBridge.ts` — swap placeholder for real `NativeModules.ChildTrackerExtension`
 - [ ] Background task in main app — reads shared storage, uploads to Firebase
-- [ ] VPN profile install flow in child onboarding (user taps Allow once)
+- [ ] VPN profile install flow in child onboarding (user taps "Allow" once)
 - [ ] Test on real device end-to-end
 
 **Exit criteria**: Child visits youtube.com → parent gets WhatsApp within 5 minutes.
@@ -42,16 +48,16 @@ No Apple Developer account needed for this phase.
 
 ## Phase 3 — Parental Controls + Blocking (Weeks 5–6)
 
-- [ ] Domain blocklist (parent sets blocked domains/categories)
-- [ ] DNS extension returns NXDOMAIN for blocked domains
-- [ ] Instant WhatsApp alert when blocked domain attempted
-- [ ] Flagged domains list (alert immediately, don't block)
-- [ ] Domain categories (adult, gambling, social media, gaming)
+- [ ] DNS extension returns NXDOMAIN for domains in `blockedDomains`
+- [ ] Instant WhatsApp alert when blocked domain attempted (already emitted server-side,
+      but client-side block path needs to fire too)
+- [ ] Domain categories (adult, gambling, social media, gaming) — server-side lists
 - [ ] Per-category toggle (block all adult sites, etc.)
-- [ ] Alert mode settings: instant flagged / hourly digest / daily digest
-- [ ] Quiet hours (no alerts 10pm–7am)
+- [ ] Daily digest mode (scheduled at `settings.digestTime` in family timezone)
+- [ ] Quiet hours (suppress instant alerts 10pm–7am)
 
-**Exit criteria**: Parent blocks "tiktok.com" → child can't access it + parent gets WhatsApp confirmation.
+**Exit criteria**: Parent blocks "tiktok.com" → child can't access it + parent gets
+WhatsApp confirmation.
 
 ---
 
@@ -69,9 +75,8 @@ No Apple Developer account needed for this phase.
 ---
 
 ## Backlog
-- Android version (can read SMS on Android — bigger feature set)
+- Android version (requires a different mechanism — private DNS / VpnService)
 - Screen time reports (Apple DeviceActivity framework)
 - App usage monitoring (which apps used, how long)
-- Location check-ins (original idea — optional add-on)
 - Web dashboard for parent (React web app)
-- Multi-child support
+- Multi-child support per family

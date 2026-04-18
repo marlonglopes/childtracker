@@ -1,9 +1,11 @@
-export type NotifyMode = 'instant' | 'digest' | 'both';
+import type { AlertMode } from './dns';
 
 export interface FamilySettings {
-  notifyMode: NotifyMode;
-  digestTime: string;   // "18:00" in local time
+  alertMode: AlertMode;
+  digestTime: string;
   timezone: string;
+  flaggedDomains: string[];
+  blockedDomains: string[];
 }
 
 export interface Family {

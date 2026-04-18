@@ -17,12 +17,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.childtracker.app',
-    infoPlist: {
-      NSLocationWhenInUseUsageDescription:
-        'ChildTracker uses your location to include it in activity updates sent to your parent.',
-      NSLocationAlwaysAndWhenInUseUsageDescription:
-        'ChildTracker uses your location in the background for automatic arrival/departure detection.',
-    },
   },
   android: {
     adaptiveIcon: {
@@ -30,17 +24,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#4F46E5',
     },
     package: 'com.childtracker.app',
-    permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_BACKGROUND_LOCATION'],
   },
   plugins: [
-    'expo-router',
-    [
-      'expo-location',
-      {
-        locationAlwaysAndWhenInUsePermission:
-          'Allow ChildTracker to use your location for automatic check-ins.',
-      },
-    ],
+    'expo-font',
     [
       'expo-notifications',
       {

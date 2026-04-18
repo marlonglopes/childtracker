@@ -10,47 +10,58 @@ No Apple Developer account required.
 
 ### Sprint 1 Tasks
 
-#### Project Reset
-- [ ] React Native bare workflow setup (`npx react-native init`)
-- [ ] TypeScript config (strict)
-- [ ] NativeWind + React Navigation
-- [ ] Firebase SDK
-- [ ] Zustand + AsyncStorage
-- [ ] ESLint + Prettier
-- [ ] Local emulator config
+#### Project Setup
+- [x] Expo + TypeScript scaffold (strict mode + `exactOptionalPropertyTypes`)
+- [x] NativeWind + React Navigation v6
+- [x] Firebase SDK (client) + Zustand + AsyncStorage
+- [x] ESLint + Prettier
+- [x] Firebase emulator config (`firebase.json` — Firestore, Auth, Functions, UI)
+- [x] Purge of pre-pivot activity/location code
 
 #### Types & Data
-- [ ] `DnsLog` type (domain, timestamp, blocked, appBundleId)
-- [ ] `Family` type (settings with flaggedDomains, blockedDomains, alertMode)
-- [ ] Firestore security rules
+- [x] `DnsLog` type (domain, timestamp, blocked, flagged, appBundleId)
+- [x] `Family` type (settings with flaggedDomains, blockedDomains, alertMode)
+- [x] Firestore security rules (`dnsLogs` functions-only write, family-member read)
 
 #### Firebase Cloud Functions
-- [ ] `onDnsLogBatch` — HTTP function, receives `{ familyId, logs[] }`, writes to Firestore
-- [ ] `hourlyDigest` — cron, aggregates last hour, sends WhatsApp summary
-- [ ] `instantAlert` — triggered when flagged/blocked domain logged
-- [ ] Twilio WhatsApp integration (sandbox)
+- [x] `onDnsLogBatch` — HTTP function, receives `{ familyId, childId, logs[] }`,
+      writes to Firestore, and (for `alertMode !== 'digest'`) emits an instant
+      WhatsApp message for any flagged/blocked match
+- [x] `hourlyDigest` — pub/sub cron (`0 * * * *` UTC), aggregates last hour →
+      WhatsApp summary for families in `digest` or `both` mode
+- [x] Twilio WhatsApp integration (sandbox + emulator-mock via
+      `FUNCTIONS_EMULATOR=true`)
 
 #### Family Linking
-- [ ] `ParentSetupScreen` — enter name + WhatsApp number → get 6-digit link code
-- [ ] `ChildSetupScreen` — enter link code → paired
+- [x] `ParentSetupScreen` — enter name + WhatsApp number → 6-digit link code
+- [x] `LinkCodeScreen` (child side) — enter link code → paired, avatar picker
+- [x] Anonymous Firebase Auth; parent UID = familyId, child UID = childId
 
 #### Parent Dashboard
-- [ ] `DashboardScreen` — list of recent domains with timestamps
-- [ ] `SettingsScreen` — alert mode, flagged domains, blocked domains
+- [x] `DashboardScreen` — recent DNS activity, flagged/blocked tags, pull-to-refresh
+- [x] `SettingsScreen` — alert mode radio, flagged/blocked domain editors,
+      persists via new `updateFamilySettings` service
 
 #### Child Monitor Screen
-- [ ] `MonitorScreen` — shows extension status (active/inactive), link status
-- [ ] VPN install prompt UI (functional in Phase 2 — placeholder for now)
+- [x] `MonitorScreen` — extension status, toggle, unlink device
+- [x] `extensionBridge` placeholder (returns `unavailable` until Sprint 2
+      supplies the real native module)
+
+#### Verification
+- [x] `npm run typecheck` passes (0 errors)
+- [ ] End-to-end smoke test via emulator: POST a fake batch → WhatsApp-mock log
+      shows the alert → domain appears in Dashboard
 
 ---
 
 ### Sprint 2 Tasks (Planned — starts 2026-05-02)
 **Requires Apple Developer account**
 
-- Add `ChildTrackerDNS` Network Extension target in Xcode
+- Run `npx expo prebuild` to generate native `ios/` project
+- Add `ChildTrackerDNS` Network Extension target (via Expo config plugin)
 - `NEDNSProxyProvider` Swift implementation
-- App Group + shared UserDefaults
-- React Native native module bridge
+- App Group + shared `UserDefaults` buffer
+- React Native native module for `extensionBridge` (replace placeholder)
 - Real device end-to-end test
 
 ---
@@ -58,15 +69,17 @@ No Apple Developer account required.
 ## Completed Sprints
 
 ### Previous Sprint — Pivoted ⚠️
-Original concept (child taps activity buttons) was replaced with DNS parental monitoring.
-All prior code scrapped and being rebuilt.
+Original concept (child taps activity buttons + location check-ins) was replaced
+with DNS parental monitoring. All activity/location code removed; family linking
+and Firebase scaffolding were kept and adapted.
 
 ---
 
 ## Blockers / Decisions Needed
 - [ ] Apple Developer account ($99) — required for Sprint 2 Network Extension
-- [ ] Twilio account — needed for Sprint 1 WhatsApp testing (sandbox is free)
-- [ ] Firebase project — needed for Sprint 1 (or use emulator locally)
+- [ ] Twilio account — needed for real WhatsApp tests (sandbox is free; emulator
+      uses a mock and needs nothing)
+- [ ] Firebase project — needed for deploy (emulator covers local dev)
 
 ---
 

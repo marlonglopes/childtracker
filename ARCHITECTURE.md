@@ -1,9 +1,10 @@
 # ChildTracker — Architecture
 
 ## Concept
-Transparent iOS parental monitoring app. Child installs it openly and approves a VPN/DNS profile
-once. Every domain the device visits is logged and sent to the parent via WhatsApp.
-No secrets — child knows the app is running.
+Transparent iOS parental monitoring. Child installs the app openly and approves a
+system DNS profile once. Every domain the device queries is logged and forwarded
+to the parent via WhatsApp. No hidden capture, no location tracking — the child
+sees the app on their home screen and knows it is running.
 
 ## System Overview
 
@@ -12,19 +13,19 @@ No secrets — child knows the app is running.
 │                     CHILD'S iPHONE                              │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │  React Native App (bare workflow)                       │    │
-│  │  - Setup/onboarding UI                                  │    │
-│  │  - Extension status + toggle                            │    │
-│  │  - Link code entry (connects to parent)                 │    │
+│  │  React Native App (Expo + prebuild)                     │    │
+│  │  - Onboarding / link code entry                         │    │
+│  │  - Extension on/off toggle (MonitorScreen)              │    │
+│  │  - Background task: drains shared log buffer every 60s  │    │
 │  └──────────────────────────┬──────────────────────────────┘    │
-│                             │ starts/stops                      │
+│                             │ starts/stops via native module    │
 │  ┌──────────────────────────▼──────────────────────────────┐    │
-│  │  Network Extension (Swift — NEDNSProxyProvider)         │    │
-│  │  - Intercepts ALL DNS queries system-wide               │    │
-│  │  - Logs: domain, timestamp, app bundle ID               │    │
-│  │  - Batches to shared UserDefaults → App reads + uploads │    │
+│  │  Network Extension — NEDNSProxyProvider (Swift)         │    │
+│  │  - Intercepts every DNS query system-wide               │    │
+│  │  - Appends { domain, timestamp, appBundleId }           │    │
+│  │    to the shared App Group UserDefaults buffer          │    │
 │  └─────────────────────────────────────────────────────────┘    │
-│                             │ batched upload every 60s          │
+│                             │ batched POST every 60s            │
 └─────────────────────────────┼───────────────────────────────────┘
                               │ HTTPS
                               ▼
@@ -32,116 +33,175 @@ No secrets — child knows the app is running.
 │                     FIREBASE BACKEND                            │
 │                                                                 │
 │  ┌────────────────┐   ┌──────────────────────────────────────┐  │
-│  │  Firestore     │   │  Cloud Functions                     │  │
+│  │  Firestore     │   │  Cloud Functions (Node 20)           │  │
 │  │  - families    │   │  - onDnsLogBatch (HTTP)              │  │
-│  │  - dns_logs    │   │    receives batches from child app   │  │
-│  │  - settings    │   │  - hourlyDigest (cron)               │  │
-│  │  - blocklist   │   │    summarises last hour → WhatsApp   │  │
-│  └────────────────┘   │  - instantAlert                      │  │
-│                       │    for blocked/flagged domains        │  │
-│                       └──────────────────┬───────────────────┘  │
+│  │    └ dnsLogs   │   │    writes batches, emits instant     │  │
+│  │    └ children  │   │    WhatsApp for flagged/blocked      │  │
+│  │                │   │  - hourlyDigest (pub/sub cron)       │  │
+│  │                │   │    summarises last hour → WhatsApp   │  │
+│  └────────────────┘   └──────────────────┬───────────────────┘  │
 └──────────────────────────────────────────┼──────────────────────┘
                                            │
                                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  TWILIO WhatsApp API                                            │
-│  → Parent's WhatsApp number                                     │
+│  TWILIO WhatsApp API  →  parent's WhatsApp number               │
+│  (mocked to logger output when FUNCTIONS_EMULATOR=true)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## iOS Project Structure (Bare Workflow)
+## Project Structure
 
 ```
 childtracker/
-├── ios/
-│   ├── ChildTracker/              # Main app target
-│   │   ├── AppDelegate.swift
-│   │   └── Info.plist
-│   ├── ChildTrackerDNS/           # Network Extension target
-│   │   ├── DNSProxyProvider.swift # Core: intercepts DNS queries
-│   │   ├── DomainLogger.swift     # Writes to shared App Group
-│   │   └── Info.plist
-│   └── ChildTracker.xcworkspace
+├── app.config.ts              # Expo config (bundle id, plugins)
+├── firebase.json              # Emulator + deploy config
+├── firestore.rules            # Security rules
+├── functions/                 # Firebase Cloud Functions
+│   └── src/index.ts           # onDnsLogBatch + hourlyDigest
 ├── src/
+│   ├── navigation/
+│   │   ├── AuthStack.tsx      # Welcome → ParentSetup / LinkCode
+│   │   ├── ParentStack.tsx    # Dashboard, Settings
+│   │   ├── ChildStack.tsx     # Monitor
+│   │   └── RootNavigator.tsx
 │   ├── screens/
 │   │   ├── WelcomeScreen.tsx
-│   │   ├── ChildSetupScreen.tsx   # Enter link code + approve VPN
-│   │   ├── ParentSetupScreen.tsx  # Phone number + get link code
-│   │   ├── MonitorScreen.tsx      # Child: extension on/off status
-│   │   └── DashboardScreen.tsx    # Parent: recent domains, alerts
+│   │   ├── ParentSetupScreen.tsx  # name + WhatsApp number → link code
+│   │   ├── LinkCodeScreen.tsx     # child side: enter code, pick avatar
+│   │   ├── DashboardScreen.tsx    # parent: recent DNS activity
+│   │   ├── SettingsScreen.tsx     # alert mode, flagged/blocked domains
+│   │   └── MonitorScreen.tsx      # child: extension on/off
 │   ├── services/
 │   │   ├── firebase.ts
-│   │   ├── dnsLogService.ts       # Uploads batched logs to backend
-│   │   ├── familyService.ts       # Family linking (same as before)
-│   │   └── extensionBridge.ts     # Native module bridge to DNS ext
+│   │   ├── familyService.ts       # createFamily / linkChildToFamily / updateFamilySettings
+│   │   ├── dnsLogService.ts       # uploadBatch + getRecentLogs
+│   │   └── extensionBridge.ts     # placeholder — real native module lands in Sprint 2
 │   ├── store/
-│   ├── types/
-│   └── navigation/
-├── functions/                     # Firebase Cloud Functions
-└── ...
+│   │   ├── authStore.ts           # role, familyId, childId (persisted)
+│   │   └── familyStore.ts         # family doc + settings (persisted)
+│   └── types/
+│       ├── dns.ts                 # DnsLog, AlertMode
+│       ├── family.ts              # Family, FamilySettings, Child
+│       └── index.ts
+└── ios/                           # generated by `expo prebuild` in Sprint 2
+    ├── ChildTracker/              # main app target
+    └── ChildTrackerDNS/           # Network Extension target (added by config plugin)
 ```
+
+> Native `ios/` / `android/` directories do not exist yet — they are generated by
+> `expo prebuild` when Sprint 2 starts. Until then, everything runs against the
+> Expo-managed simulator and Firebase emulator.
 
 ## Data Models (Firestore)
 
 ### `families/{familyId}`
 ```ts
 {
-  id: string
-  linkCode: string
-  parentPhone: string       // E.164 — WhatsApp destination
-  parentName: string
-  createdAt: Timestamp
+  id: string;
+  linkCode: string;               // 6-digit, shown in parent UI
+  parentPhone: string;             // E.164 — WhatsApp destination
+  parentName: string;
+  createdAt: Timestamp;
   settings: {
-    alertMode: 'instant_flagged' | 'hourly' | 'daily'
-    flaggedDomains: string[]  // always instant alert if visited
-    blockedDomains: string[]  // blocked at DNS level
-    blockedCategories: string[] // e.g. 'adult', 'gambling'
-  }
+    alertMode: 'instant' | 'digest' | 'both';
+    digestTime: string;            // "HH:MM" — reserved for daily digest (future)
+    timezone: string;              // IANA tz from device
+    flaggedDomains: string[];      // match on equality or subdomain suffix
+    blockedDomains: string[];      // same matching; DNS-level block in Sprint 3
+  };
 }
 ```
 
-### `families/{familyId}/dns_logs/{logId}`
+### `families/{familyId}/children/{childId}`
 ```ts
 {
-  domain: string            // e.g. "instagram.com"
-  timestamp: Timestamp
-  blocked: boolean
-  appBundleId?: string      // which app triggered the query
-  notified: boolean
+  id: string;
+  name: string;
+  avatar: string;                  // emoji chosen during onboarding
+  deviceToken?: string;            // reserved for push (future)
+  linkedAt: Timestamp;
 }
 ```
 
-## Network Extension Flow
+### `families/{familyId}/dnsLogs/{logId}`
+Written exclusively by the `onDnsLogBatch` Cloud Function (admin SDK bypasses
+security rules — clients are read-only).
+```ts
+{
+  childId: string;
+  domain: string;                  // lower-cased on write
+  timestamp: Timestamp;
+  blocked: boolean;                // matched blockedDomains at ingest time
+  flagged: boolean;                // matched flaggedDomains at ingest time
+  appBundleId: string | null;      // which app triggered the query (iOS 16+)
+}
+```
 
-1. Child app calls `NETunnelProviderManager` to install VPN config (one-time, requires user tap "Allow")
-2. `NEDNSProxyProvider` starts — iOS routes all DNS queries through it
-3. Extension intercepts query → logs `{ domain, timestamp }` to shared `UserDefaults` (App Group)
-4. Main app has a background task that reads shared UserDefaults every 60s and POSTs batch to Firebase Function
-5. Cloud Function writes to Firestore + triggers WhatsApp if domain is flagged/blocked
+## Data Flow
 
-## WhatsApp Message Templates
+1. `NEDNSProxyProvider` intercepts a DNS query and appends
+   `{ domain, timestamp, appBundleId }` to the shared App Group `UserDefaults`
+   buffer.
+2. Every 60s, the main app's background task drains the buffer and calls
+   `dnsLogService.uploadBatch(familyId, childId, logs)`.
+3. `onDnsLogBatch` evaluates each entry against `flaggedDomains` /
+   `blockedDomains`, batch-writes to `dnsLogs`, and — if `alertMode !== 'digest'`
+   and any entries matched — sends an instant WhatsApp message.
+4. `hourlyDigest` (pub/sub cron, `0 * * * *` UTC) aggregates the last hour of
+   flagged logs per family and sends a summary to families in `digest` or `both`
+   mode.
 
-### `hourly_digest`
-> "📱 Last hour on Sofia's phone:\n• youtube.com (12x)\n• instagram.com (8x)\n• google.com (3x)"
+## WhatsApp Messages
 
-### `flagged_alert`
-> "⚠️ Sofia just visited: onlyfans.com at 3:42 PM"
+### Instant alert (from `onDnsLogBatch`)
+```
+ChildTracker alert:
+🚫 BLOCKED: pornhub.com
+⚠️ FLAGGED: tiktok.com
+```
 
-### `blocked_notice`
-> "🚫 Blocked: Sofia tried to visit gambling.com at 4:15 PM"
+### Hourly digest (from `hourlyDigest`)
+```
+ChildTracker — last hour:
+⚠️ tiktok.com at 14:03
+⚠️ tiktok.com at 14:17
+🚫 pornhub.com at 14:41
+```
 
-## What Requires Apple Developer Account
-- Network Extension entitlement (`com.apple.developer.networking.networkextension`)
-- App Group entitlement (shared storage between app + extension)
-- Provisioning profiles for both targets
-- Cannot be tested on a real device without these
-- Simulator: extension won't intercept real DNS but logic can be unit tested
+### Emulator mode
+When `FUNCTIONS_EMULATOR=true`, `sendWhatsApp` logs the message instead of
+calling Twilio — no account or credentials required for local development.
+
+## Security Model
+
+- **Auth**: anonymous Firebase Auth. Parent UID = `familyId`. Child UID =
+  `childId`. Both are created via `signInAnonymously` during onboarding.
+- **Firestore rules** (`firestore.rules`):
+  - `families/{id}` readable by parent or any linked child; writable only by
+    parent; delete denied.
+  - `children/{childId}` writable by that child; readable by parent or self.
+  - `dnsLogs/{id}` readable by family members; writes denied for all clients
+    (admin SDK only).
+
+## What Requires an Apple Developer Account ($99/yr)
+
+The account is **not needed for Sprint 1**. It becomes required in Sprint 2:
+
+- `com.apple.developer.networking.networkextension` entitlement
+- App Group entitlement for the shared `UserDefaults` buffer
+- Provisioning profiles for both targets (`ChildTracker` + `ChildTrackerDNS`)
+- Real-device testing — the iOS simulator does not route real DNS through
+  NEDNSProxyProvider
 
 ## Tech Stack
-- **App**: React Native bare workflow (Expo bare)
-- **Language**: TypeScript (app) + Swift (Network Extension)
-- **Backend**: Firebase Firestore + Cloud Functions
-- **Messaging**: Twilio WhatsApp API
-- **State**: Zustand + AsyncStorage
-- **Navigation**: React Navigation v6
-- **Styling**: NativeWind
+
+| Layer        | Choice                                                       |
+|--------------|--------------------------------------------------------------|
+| App runtime  | React Native via Expo (managed today, prebuild in Sprint 2)  |
+| Language     | TypeScript (app/backend), Swift (Network Extension)          |
+| State        | Zustand + AsyncStorage persistence                           |
+| Navigation   | React Navigation v6                                          |
+| Styling      | NativeWind (Tailwind for RN)                                 |
+| Backend      | Firebase Firestore + Cloud Functions (Node 20)               |
+| Messaging    | Twilio WhatsApp (sandbox in dev, Meta WhatsApp Business later) |
+| iOS Extension| `NEDNSProxyProvider` (arrives in Sprint 2)                   |
