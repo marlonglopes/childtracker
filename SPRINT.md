@@ -1,86 +1,76 @@
 # ChildTracker — Sprint Tracker
 
-## Current Sprint: Sprint 2 — Activity Logging + First WhatsApp
-**Dates**: 2026-05-02 → 2026-05-15
-**Phase**: Phase 1 — MVP
-**Goal**: Child taps a button → parent receives a WhatsApp message. End-to-end working on real device.
+## Current Sprint: Sprint 1 — Backend + Family Linking
+**Dates**: 2026-04-18 → 2026-05-01
+**Phase**: Phase 1 — Foundation
+**Goal**: Backend fully working end-to-end. POST fake DNS batch → WhatsApp arrives on parent's phone.
+No Apple Developer account required.
 
 ---
 
 ### Sprint 1 Tasks
 
-#### Setup
-- [x] Expo project scaffolded (TypeScript, strict mode)
-- [x] Install core deps: NativeWind, React Navigation, Zustand, Firebase SDK
-- [x] Configure `tsconfig.json` (strict mode, path aliases `@/*`)
-- [x] Configure `app.config.ts` with Firebase env vars
-- [x] `.env.example` with required vars documented
-- [x] Prettier + ESLint setup (`no-console` enforced)
+#### Project Reset
+- [ ] React Native bare workflow setup (`npx react-native init`)
+- [ ] TypeScript config (strict)
+- [ ] NativeWind + React Navigation
+- [ ] Firebase SDK
+- [ ] Zustand + AsyncStorage
+- [ ] ESLint + Prettier
+- [ ] Local emulator config
 
-#### Firebase
-- [x] Firestore security rules written (`firestore.rules`)
-- [x] Cloud Functions scaffold: `onActivityLogged` + `dailyDigest` + Twilio WhatsApp
-- [ ] **MANUAL**: Create Firebase project at console.firebase.google.com
-- [ ] **MANUAL**: Enable Firestore, Anonymous Auth, Cloud Functions
-- [ ] **MANUAL**: `firebase deploy --only firestore:rules`
-- [ ] **MANUAL**: `firebase functions:config:set twilio.sid=... twilio.token=... twilio.from=...`
+#### Types & Data
+- [ ] `DnsLog` type (domain, timestamp, blocked, appBundleId)
+- [ ] `Family` type (settings with flaggedDomains, blockedDomains, alertMode)
+- [ ] Firestore security rules
 
-#### Navigation
-- [x] Root navigator (Auth stack vs. Child stack vs. Parent stack)
-- [x] Auth stack: WelcomeScreen → ParentSetupScreen / LinkCodeScreen
-- [x] Child stack: HomeScreen (8 activity buttons + SOS)
-- [x] Parent stack: DashboardScreen + SettingsScreen
+#### Firebase Cloud Functions
+- [ ] `onDnsLogBatch` — HTTP function, receives `{ familyId, logs[] }`, writes to Firestore
+- [ ] `hourlyDigest` — cron, aggregates last hour, sends WhatsApp summary
+- [ ] `instantAlert` — triggered when flagged/blocked domain logged
+- [ ] Twilio WhatsApp integration (sandbox)
 
 #### Family Linking
-- [x] `ParentSetupScreen`: enters name + phone → creates Firestore family + link code
-- [x] `LinkCodeScreen`: child enters 6-digit code + name + avatar → anonymous auth
-- [x] Firestore family document creation via `familyService.ts`
-- [x] Link code validation + error alerts
+- [ ] `ParentSetupScreen` — enter name + WhatsApp number → get 6-digit link code
+- [ ] `ChildSetupScreen` — enter link code → paired
 
-#### State
-- [x] `authStore` (Zustand + AsyncStorage): uid, familyId, role, childId, childName
-- [x] `familyStore` (Zustand + AsyncStorage): family settings, children list
-- [x] Persistence with `zustand/middleware` (AsyncStorage)
+#### Parent Dashboard
+- [ ] `DashboardScreen` — list of recent domains with timestamps
+- [ ] `SettingsScreen` — alert mode, flagged domains, blocked domains
+
+#### Child Monitor Screen
+- [ ] `MonitorScreen` — shows extension status (active/inactive), link status
+- [ ] VPN install prompt UI (functional in Phase 2 — placeholder for now)
 
 ---
 
 ### Sprint 2 Tasks (Planned — starts 2026-05-02)
-- Child HomeScreen: 8 activity buttons (big, colorful)
-- Activity logging service (write to Firestore)
-- Cloud Function: `onActivityLogged` trigger
-- Twilio sandbox setup
-- First WhatsApp message sent end-to-end
+**Requires Apple Developer account**
 
----
-
-### Sprint 3 Tasks (Planned — starts 2026-05-16)
-- GPS location on activity log
-- Reverse geocoding
-- SOS button
-- Daily digest Cloud Function (cron)
-- Parent settings: notify mode toggle
+- Add `ChildTrackerDNS` Network Extension target in Xcode
+- `NEDNSProxyProvider` Swift implementation
+- App Group + shared UserDefaults
+- React Native native module bridge
+- Real device end-to-end test
 
 ---
 
 ## Completed Sprints
 
-### Sprint 1 — Foundation ✅ (completed 2026-04-18)
-All code tasks complete. Manual Firebase/Twilio setup required before first run (see blockers).
-Delivered: full app scaffold, navigation, all screens, Firestore rules, Cloud Functions, Zustand stores, service layer.
+### Previous Sprint — Pivoted ⚠️
+Original concept (child taps activity buttons) was replaced with DNS parental monitoring.
+All prior code scrapped and being rebuilt.
 
 ---
 
 ## Blockers / Decisions Needed
-- [ ] **Twilio**: Create account at twilio.com, enable WhatsApp Sandbox, get SID + Auth Token
-- [ ] **Firebase**: Create project, enable Firestore + Anonymous Auth + Cloud Functions (Blaze plan required for Functions)
-- [ ] **Decision**: Twilio sandbox first (free, instant) vs Meta Cloud API (free but needs business verification — weeks)
-  → Recommendation: Twilio sandbox for Sprint 2, migrate to Meta for production (Phase 4)
-- [ ] **Firebase region**: Choose closest to target users (e.g. `us-central1` or `southamerica-east1`)
+- [ ] Apple Developer account ($99) — required for Sprint 2 Network Extension
+- [ ] Twilio account — needed for Sprint 1 WhatsApp testing (sandbox is free)
+- [ ] Firebase project — needed for Sprint 1 (or use emulator locally)
 
 ---
 
 ## Definition of Done
-- Feature works on both iOS (simulator) and Android (emulator)
-- TypeScript compiles with no errors
-- No `console.log` left in committed code
-- PR reviewed before merge to `main`
+- Feature tested on iOS simulator (or real device for extension work)
+- TypeScript compiles with no errors (`npm run typecheck`)
+- No `console.log` in committed code
