@@ -11,6 +11,10 @@ import {
 import { useAuthStore, useFamilyStore } from '@/store';
 import { getRecentLogs } from '@/services/dnsLogService';
 import type { DnsLog } from '@/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { ParentStackParamList } from '@/navigation/types';
+
+type Props = NativeStackScreenProps<ParentStackParamList, 'Dashboard'>;
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -28,7 +32,7 @@ function DomainTag({ log }: { log: DnsLog }) {
   return null;
 }
 
-export function DashboardScreen({ navigation }: { navigation: any }) {
+export function DashboardScreen({ navigation }: Props) {
   const { familyId } = useAuthStore();
   const { family } = useFamilyStore();
   const [logs, setLogs] = useState<DnsLog[]>([]);
@@ -73,7 +77,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-5xl mb-4">📡</Text>
           <Text className="text-gray-500 text-center text-lg">
-            No DNS logs yet. Once your child's device connects, domains will appear here.
+            No DNS logs yet. Once your child’s device connects, domains will appear here.
           </Text>
         </View>
       ) : (

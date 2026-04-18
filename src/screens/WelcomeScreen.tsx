@@ -9,7 +9,7 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
         <Text className="text-7xl">👨‍👩‍👧‍👦</Text>
         <Text className="text-4xl font-bold text-white text-center">ChildTracker</Text>
         <Text className="text-lg text-indigo-200 text-center">
-          Stay connected with your kids. They tap once — you know they're safe.
+          Transparent parental monitoring. See what your child’s phone connects to, right in WhatsApp.
         </Text>
       </View>
 
@@ -18,7 +18,7 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
           className="bg-white rounded-2xl py-4 items-center"
           onPress={() => navigation.navigate('ParentSetup')}
         >
-          <Text className="text-indigo-600 text-lg font-bold">I'm a Parent</Text>
+          <Text className="text-indigo-600 text-lg font-bold">I’m a Parent</Text>
           <Text className="text-indigo-400 text-sm">Set up family &amp; get WhatsApp alerts</Text>
         </TouchableOpacity>
 
@@ -26,7 +26,7 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
           className="bg-indigo-500 rounded-2xl py-4 items-center border border-indigo-400"
           onPress={() => navigation.navigate('LinkCode')}
         >
-          <Text className="text-white text-lg font-bold">I'm a Child</Text>
+          <Text className="text-white text-lg font-bold">I’m a Child</Text>
           <Text className="text-indigo-200 text-sm">Enter the code from your parent</Text>
         </TouchableOpacity>
       </View>
