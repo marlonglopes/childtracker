@@ -17,3 +17,7 @@ functions/lib/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+
+# Claude Code — personal settings (keep team-wide .claude/settings.json committable)
+.claude/settings.local.json
+
