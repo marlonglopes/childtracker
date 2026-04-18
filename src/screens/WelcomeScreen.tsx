@@ -9,7 +9,7 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
         <Text className="text-7xl">👨‍👩‍👧‍👦</Text>
         <Text className="text-4xl font-bold text-white text-center">ChildTracker</Text>
         <Text className="text-lg text-indigo-200 text-center">
-          Transparent parental monitoring. See what your child’s phone connects to, right in WhatsApp.
+          Stay connected with your kids. They tap once — you know they&apos;re safe.
         </Text>
       </View>
 
