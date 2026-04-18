@@ -4,6 +4,11 @@ dist/
 web-build/
 .env
 .env.local
+
+# Native projects are generated from app.config.ts + config plugins via
+# `npx expo prebuild`. Source of truth is plugins/, not the generated files.
+ios/
+android/
 *.orig.*
 *.jks
 *.p8
