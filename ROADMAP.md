@@ -8,14 +8,14 @@ A zero-friction safety app where kids tap one button and parents instantly know 
 ## Phase 1 — MVP (Weeks 1–3)
 **Goal**: Working app on real device. Child taps, parent gets WhatsApp.
 
-- [ ] Expo project scaffolding + TypeScript + NativeWind
-- [ ] Firebase project setup (Auth, Firestore, Functions)
-- [ ] Family linking (6-digit code flow)
-- [ ] Child UI: big button grid (8 core activities)
-- [ ] Activity logging to Firestore
-- [ ] Cloud Function: instant WhatsApp on activity tap
-- [ ] Twilio WhatsApp sandbox integration
-- [ ] Basic parent settings screen (phone number, notify mode)
+- [x] Expo project scaffolding + TypeScript + NativeWind
+- [x] Family linking (6-digit code flow) — screens + service layer
+- [x] Child UI: big button grid (8 core activities + SOS)
+- [x] Activity logging to Firestore — `activityService.ts`
+- [x] Cloud Function: instant WhatsApp on activity tap (`onActivityLogged`)
+- [x] Basic parent settings screen (phone number, notify mode)
+- [ ] Firebase project setup (Auth, Firestore, Functions) — **manual step**
+- [ ] Twilio WhatsApp sandbox integration — **manual step**
 - [ ] TestFlight internal build
 
 **Exit criteria**: Child taps "Arrived at school" → parent WhatsApp message arrives in < 5 seconds.

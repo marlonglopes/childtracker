@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the caller a member of this family?
+    function isFamilyMember(familyId) {
+      return request.auth != null && (
+        request.auth.uid == familyId ||
+        exists(/databases/$(database)/documents/families/$(familyId)/children/$(request.auth.uid))
+      );
+    }
+
+    function isParent(familyId) {
+      return request.auth != null && request.auth.uid == familyId;
+    }
+
+    function isChild(familyId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/families/$(familyId)/children/$(request.auth.uid));
+    }
+
+    // Rate-limited link code lookup — unauthenticated read allowed on families
+    // but only for the linkCode field (to support child onboarding)
+    match /families/{familyId} {
+      allow read: if isFamilyMember(familyId);
+      allow create: if request.auth != null && request.auth.uid == familyId;
+      allow update: if isParent(familyId);
+      allow delete: if false;
+
+      match /children/{childId} {
+        allow read: if isParent(familyId) || request.auth.uid == childId;
+        allow create: if request.auth != null && request.auth.uid == childId;
+        allow update: if request.auth.uid == childId;
+        allow delete: if isParent(familyId);
+      }
+
+      match /activities/{activityId} {
+        allow read: if isFamilyMember(familyId);
+        // Child can only write their own activities
+        allow create: if isChild(familyId)
+          && request.resource.data.childId == request.auth.uid
+          && request.resource.data.notified == false;
+        allow update: if false; // only Cloud Functions update notified flag
+        allow delete: if false;
+      }
+    }
+
+    // Link code lookup — callable function handles this, not direct reads
+    // Direct unauthenticated reads on families are blocked
+  }
+}
