@@ -10,6 +10,7 @@ import {
 import { useAuthStore, useFamilyStore } from '@/store';
 import {
   getExtensionStatus,
+  isMockMode,
   startExtension,
   stopExtension,
   type ExtensionStatus,
@@ -35,10 +36,11 @@ const STATUS_COPY: Record<ExtensionStatus, { title: string; tone: string; detail
 };
 
 export function MonitorScreen() {
-  const { childName, clearAuth } = useAuthStore();
+  const { childName, familyId, childId, clearAuth } = useAuthStore();
   const { family, clearFamily } = useFamilyStore();
   const [status, setStatus] = useState<ExtensionStatus>('unavailable');
   const [busy, setBusy] = useState(false);
+  const mockMode = isMockMode();
 
   const refresh = useCallback(async () => {
     const s = await getExtensionStatus();
@@ -50,10 +52,14 @@ export function MonitorScreen() {
   }, [refresh]);
 
   async function toggle() {
+    if (!familyId || !childId) {
+      Alert.alert('Not linked', 'Finish setup before turning on monitoring.');
+      return;
+    }
     setBusy(true);
     try {
       if (status === 'active') await stopExtension();
-      else await startExtension();
+      else await startExtension({ familyId, childId });
       await refresh();
     } catch (e) {
       Alert.alert('Cannot toggle', e instanceof Error ? e.message : 'Unknown error.');
@@ -85,6 +91,14 @@ export function MonitorScreen() {
         <Text className="text-gray-500 mt-1">
           Linked to {family?.parentName ?? 'your parent'}
         </Text>
+        {mockMode ? (
+          <View className="mt-3 bg-amber-100 rounded-lg px-3 py-2">
+            <Text className="text-amber-800 text-xs">
+              Dev build — using a mock DNS source. On signed builds this will
+              be the real system DNS filter.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View className="flex-1 px-6 justify-center">

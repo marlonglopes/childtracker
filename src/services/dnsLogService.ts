@@ -6,17 +6,28 @@ import {
   getDocs,
   Timestamp,
 } from 'firebase/firestore';
+import Constants from 'expo-constants';
 import { db } from './firebase';
 import type { DnsLog } from '@/types';
 
-const BATCH_ENDPOINT = '/onDnsLogBatch';
+function resolveBatchEndpoint(): string {
+  const useEmulator = process.env.EXPO_PUBLIC_USE_EMULATOR === 'true';
+  const projectId =
+    (Constants.expoConfig?.extra?.firebaseProjectId as string | undefined) ?? 'childtracker-dev';
+
+  if (useEmulator) {
+    const host = process.env.EXPO_PUBLIC_EMULATOR_HOST ?? 'localhost';
+    return `http://${host}:5001/${projectId}/us-central1/onDnsLogBatch`;
+  }
+  return `https://us-central1-${projectId}.cloudfunctions.net/onDnsLogBatch`;
+}
 
 export async function uploadBatch(
   familyId: string,
   childId: string,
   logs: Array<{ domain: string; timestamp: number; appBundleId?: string }>,
 ): Promise<void> {
-  const res = await fetch(BATCH_ENDPOINT, {
+  const res = await fetch(resolveBatchEndpoint(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ familyId, childId, logs }),
